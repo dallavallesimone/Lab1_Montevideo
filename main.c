@@ -18,7 +18,8 @@ int main() {
 		for (int j = 1; j <= 16; j++) {
 
 			//Shift of 16 in order to start from the second half of the plaintext
-			int shift = 16 - j;
+			//int shift = 16 - j;
+			int shift = 32 - j;
 
 			//Do a right shift in order to put the bit we want to
 			//the least significant bit
@@ -43,13 +44,9 @@ int main() {
 			//printf("subkey: %x\n   tmp: %x\n", subkey_generation(k, i, right_j), tmp);
 			tmp = tmp ^ subkey_generation(k, i, right_j);
 			//printf("tmp after xor: %x\n\n", tmp);
-			tmp = tmp << shift;
+			tmp = tmp << (shift-16);
 			new_word = new_word | tmp;
 		}
-
-		//Shift of 16 in order to allow us to sum with the first half of
-		//the plaintext
-		new_word = new_word << 16;
 
 		//Xor operation to the first half of the plaintext
 		x = x ^ new_word;
