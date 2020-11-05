@@ -1,29 +1,65 @@
 #include <stdio.h>
 unsigned int subkey_generation(unsigned int k, int round_number, int bit_position);
 
-unsigned int encrypt(unsigned int u, unsigned int k);
-unsigned int decrypt(unsigned int x, unsigned int k);
+unsigned int encrypt(unsigned int k, unsigned int u);
+unsigned int decrypt(unsigned int k, unsigned int x);
 
 int main() {
 	int number_of_rounds = 17;
 
 	//The plaintext
-	unsigned int u = 0xCACCA123;
+	unsigned int u = 0xcacca123;
 	//The key
-	unsigned int k = 0x80000000;
+	unsigned int k = 0x12345678;
 	
 	printf("Original PLAINTEXT: %x\n", u);
 
-	unsigned int x = encrypt(u, k);
+	// task1 - implement encryption
+	unsigned int x = encrypt(k, u);
 	printf("CYPHERTEXT: %x\n", x);
 
-	unsigned int u_decrypt = decrypt(x, k);
+	// task2 - implement decryption
+	unsigned int u_decrypt = decrypt(k, x);
 	printf("Computed PLAINTEXT: %x\n", u_decrypt);
+
+	// task3 - identify the linear relationship
+	// compute A and B matrixes and store them in columns
+	unsigned int A_matrix_cols[32];
+	unsigned int B_matrix_cols[32];
+	unsigned int eigenvalue = 0x80000000;
+	for (int i = 0; i < 32; i++)
+	{
+		A_matrix_cols[i] = encrypt(eigenvalue, 0); // i-th colomn
+		B_matrix_cols[i] = encrypt(0, eigenvalue);
+		eigenvalue = eigenvalue >> 1;
+	}
+	// compute A*k and B*u
+	// using the following property:
+	// (col1 ... col32)* (v1 ... v32)^T = col1 * v1 + ... + col32 * v32
+	// where matrix A = (col1 ... col32)
+	// and column vector v = (v1 ... v32)^TT
+	eigenvalue = 0x80000000;
+	unsigned int first_prod = 0; // A*k
+	unsigned int second_prod = 0; // B*u
+	for (int i = 0; i < 32; i++)
+	{
+		if ((k & eigenvalue) == 0) { // k[i] = 0 (i-th bit)
+			A_matrix_cols[i] = 0;
+		}
+		if ((u & eigenvalue) == 0) { // u[i] = 0 (i-th bit)
+			B_matrix_cols[i] = 0;
+		}
+		eigenvalue = eigenvalue >> 1;
+		first_prod ^= A_matrix_cols[i];
+		second_prod ^= B_matrix_cols[i];
+	}
+	unsigned int result = first_prod ^ second_prod; 
+	printf("Ciphertext computed as linear combination of k and u: %x\n", result);
 
 	return 0;
 }
 
-unsigned int encrypt(unsigned int u, unsigned int k) {
+unsigned int encrypt(unsigned int k, unsigned int u) {
 	// assign plaintext to cyphertext 
 	unsigned int x = u;
 	for (int i = 1; i <= 17; i++) {
@@ -84,7 +120,7 @@ unsigned int encrypt(unsigned int u, unsigned int k) {
 	return x;
 }
 
-unsigned int decrypt(unsigned int x, unsigned int k) {
+unsigned int decrypt(unsigned int k, unsigned int x) {
 	// assign cyphertext to plaintext 
 	unsigned int u = x;
 	for (int i = 1; i <= 17; i++) {
