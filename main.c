@@ -1,16 +1,31 @@
 #include <stdio.h>
 unsigned int subkey_generation(unsigned int k, int round_number, int bit_position);
 
+unsigned int encrypt(unsigned int u, unsigned int k);
+unsigned int decrypt(unsigned int x, unsigned int k);
+
 int main() {
 	int number_of_rounds = 17;
 
 	//The plaintext
-	unsigned int u = 0x80000000;
+	unsigned int u = 0xCACCA123;
 	//The key
 	unsigned int k = 0x80000000;
-	//The cyphertext 
-	unsigned int x = 0x80000000;
+	
+	printf("Original PLAINTEXT: %x\n", u);
 
+	unsigned int x = encrypt(u, k);
+	printf("CYPHERTEXT: %x\n", x);
+
+	unsigned int u_decrypt = decrypt(x, k);
+	printf("Computed PLAINTEXT: %x\n", u_decrypt);
+
+	return 0;
+}
+
+unsigned int encrypt(unsigned int u, unsigned int k) {
+	// assign plaintext to cyphertext 
+	unsigned int x = u;
 	for (int i = 1; i <= 17; i++) {
 
 		//Variable used to keep the changes caused by (yi xor ki)
@@ -44,7 +59,7 @@ int main() {
 			//printf("subkey: %x\n   tmp: %x\n", subkey_generation(k, i, right_j), tmp);
 			tmp = tmp ^ subkey_generation(k, i, right_j);
 			//printf("tmp after xor: %x\n\n", tmp);
-			tmp = tmp << (shift-16);
+			tmp = tmp << (shift - 16);
 			new_word = new_word | tmp;
 		}
 
@@ -65,10 +80,69 @@ int main() {
 			x = x_left | x_right;
 			//printf("new x: %x\n", x);
 		}
-		//printf("new x: %x\n\n\n\n\n", x);
 	}
-	printf("CYPHERTEXT: %x\n", x);
-	return 0;
+	return x;
+}
+
+unsigned int decrypt(unsigned int x, unsigned int k) {
+	// assign cyphertext to plaintext 
+	unsigned int u = x;
+	for (int i = 1; i <= 17; i++) {
+
+		//Variable used to keep the changes caused by (yi xor ki)
+		unsigned int new_word = 0x00000000;
+		for (int j = 1; j <= 16; j++) {
+
+			//Shift of 16 in order to start from the second half of the plaintext
+			//int shift = 16 - j;
+			int shift = 32 - j;
+
+			//Do a right shift in order to put the bit we want to
+			//the least significant bit
+			unsigned int tmp = u >> shift;
+			//printf("x after shift: %x\n", tmp);
+
+			//Keep only the least significant bit
+			tmp = tmp & 0x00000001;
+			//printf("x after applying the mask: %x\n", tmp);
+
+			//Change the bit to choose from the key following the pdf instructions
+			int right_j = 0;
+			if (j <= 8) {
+				right_j = 4 * j - 3;
+			}
+			else {
+				right_j = 4 * j - 32;
+			}
+
+			//Do the xor operation and do a left shift in order to 
+			//update new_word
+			//printf("subkey: %x\n   tmp: %x\n", subkey_generation(k, i, right_j), tmp);
+			tmp = tmp ^ subkey_generation(k, 18-i, right_j);
+			//printf("tmp after xor: %x\n\n", tmp);
+			tmp = tmp << (shift - 16);
+			new_word = new_word | tmp;
+		}
+
+		//Xor operation to the first half of the plaintext
+		u = u ^ new_word;
+		//printf("shifted: %x\n", new_word);
+		//printf("new x: %x\n", x);
+
+		//Swap the 2 halves of the text
+		if (i != 17) {
+			unsigned int mask1 = 0xffff0000;
+			unsigned int mask2 = 0xffff;
+			unsigned int u_left = (u & mask1) >> 16;
+			unsigned int u_right = (u & mask2) << 16;
+			//printf("x: %x\n", x);
+			//printf("left: %x\n", x_left);
+			//printf("right: %x\n", x_right);
+			u = u_left | u_right;
+			//printf("new x: %x\n", x);
+		}
+	}
+	return u;
 }
 
 
