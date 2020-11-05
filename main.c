@@ -4,35 +4,60 @@ unsigned int subkey_generation(unsigned int k, int round_number, int bit_positio
 unsigned int encrypt(unsigned int k, unsigned int u);
 unsigned int decrypt(unsigned int k, unsigned int x);
 
+void cofactor(float num[32][32], float f);
+void transpose(float num[32][32], float fac[32][32], float r);
+
 int main() {
 	int number_of_rounds = 17;
 
 	//The plaintext
 	unsigned int u = 0xcacca123;
 	//The key
-	unsigned int k = 0x12345678;
+	unsigned int key = 0x12345678;
 	
 	printf("Original PLAINTEXT: %x\n", u);
 
 	// task1 - implement encryption
-	unsigned int x = encrypt(k, u);
+	unsigned int x = encrypt(key, u);
 	printf("CYPHERTEXT: %x\n", x);
 
 	// task2 - implement decryption
-	unsigned int u_decrypt = decrypt(k, x);
+	unsigned int u_decrypt = decrypt(key, x);
 	printf("Computed PLAINTEXT: %x\n", u_decrypt);
 
 	// task3 - identify the linear relationship
 	// compute A and B matrixes and store them in columns
+
+	const int matsize = 32;
+	float** A = (float**)malloc(matsize * sizeof(float*));
+	for (int i = 0;i < matsize;i++)
+		A[i] = (float*)malloc(matsize * sizeof(float));
 	unsigned int A_matrix_cols[32];
 	unsigned int B_matrix_cols[32];
 	unsigned int eigenvalue = 0x80000000;
-	for (int i = 0; i < 32; i++)
+	for (int i = 0; i < matsize; i++)
 	{
 		A_matrix_cols[i] = encrypt(eigenvalue, 0); // i-th colomn
 		B_matrix_cols[i] = encrypt(0, eigenvalue);
 		eigenvalue = eigenvalue >> 1;
 	}
+
+	printf("matrix real A\n");
+	eigenvalue = 0x80000000;
+	for (int i = 0;i < matsize;i++) {
+ 		for (int j = 0;j < matsize;j++) {
+			if ((eigenvalue & A_matrix_cols[j]) == 0)
+				A[i][j] = 0;
+			else
+				A[i][j] = 1;
+			printf("%d", (int)A[i][j]);
+			if ((j + 1) % 4 == 0)
+				printf(" ");
+		}
+		printf("\n");
+		eigenvalue = eigenvalue >> 1;
+	}
+
 	// compute A*k and B*u
 	// using the following property:
 	// (col1 ... col32)* (v1 ... v32)^T = col1 * v1 + ... + col32 * v32
@@ -41,9 +66,9 @@ int main() {
 	eigenvalue = 0x80000000;
 	unsigned int first_prod = 0; // A*k
 	unsigned int second_prod = 0; // B*u
-	for (int i = 0; i < 32; i++)
+	for (int i = 0; i < matsize; i++)
 	{
-		if ((k & eigenvalue) == 0) { // k[i] = 0 (i-th bit)
+		if ((key & eigenvalue) == 0) { // k[i] = 0 (i-th bit)
 			A_matrix_cols[i] = 0;
 		}
 		if ((u & eigenvalue) == 0) { // u[i] = 0 (i-th bit)
@@ -56,6 +81,15 @@ int main() {
 	unsigned int result = first_prod ^ second_prod; 
 	printf("Ciphertext computed as linear combination of k and u: %x\n", result);
 
+	// task4 - compute key given u and v
+
+	// compute the inverse of A
+	// too long computation!!
+	float d = determinant(A, matsize);
+	if (d == 0)
+		printf("\nInverse of Entered Matrix is not possible\n");
+	else
+		cofactor(A, matsize);
 	return 0;
 }
 
@@ -205,4 +239,111 @@ unsigned int subkey_generation(unsigned int k, int round_number, int bit_positio
 
 	//I do the shift in order to give back to the function only 1 bit
 	return bit_value >> 32 - bit_position_old_key;
+}
+
+/*For calculating Determinant of the Matrix */
+float determinant(float a[32][32], int k)
+{
+	float s = 1, det = 0, b[32][32];
+	int i, j, m, n, c;
+	if (k == 1)
+	{
+		return (a[0][0]);
+	}
+	else
+	{
+		det = 0;
+		for (c = 0; c < k; c++)
+		{
+			m = 0;
+			n = 0;
+			for (i = 0;i < k; i++)
+			{
+				for (j = 0;j < k; j++)
+				{
+					b[i][j] = 0;
+					if (i != 0 && j != c)
+					{
+						b[m][n] = a[i][j];
+						if (n < (k - 2))
+							n++;
+						else
+						{
+							n = 0;
+							m++;
+						}
+					}
+				}
+			}
+			det = det + s * (a[0][c] * determinant(b, k - 1));
+			s = -1 * s;
+		}
+	}
+
+	return (det);
+}
+
+void cofactor(float num[32][32], float f)
+{
+	float b[32][32], fac[32][32];
+	int p, q, m, n, i, j;
+	for (q = 0;q < f; q++)
+	{
+		for (p = 0;p < f; p++)
+		{
+			m = 0;
+			n = 0;
+			for (i = 0;i < f; i++)
+			{
+				for (j = 0;j < f; j++)
+				{
+					if (i != q && j != p)
+					{
+						b[m][n] = num[i][j];
+						if (n < (f - 2))
+							n++;
+						else
+						{
+							n = 0;
+							m++;
+						}
+					}
+				}
+			}
+			fac[q][p] = pow(-1, q + p) * determinant(b, f - 1);
+		}
+	}
+	transpose(num, fac, f);
+}
+/*Finding transpose of matrix*/
+void transpose(float num[32][32], float fac[32][32], float r)
+{
+	int i, j;
+	float b[32][32], inverse[32][32], d;
+
+	for (i = 0;i < r; i++)
+	{
+		for (j = 0;j < r; j++)
+		{
+			b[i][j] = fac[j][i];
+		}
+	}
+	d = determinant(num, r);
+	for (i = 0;i < r; i++)
+	{
+		for (j = 0;j < r; j++)
+		{
+			inverse[i][j] = b[i][j] / d;
+		}
+	}
+	printf("\n\n\nThe inverse of matrix is : \n");
+
+	for (i = 0;i < r; i++)
+	{
+		for (j = 0;j < r; j++)
+		{
+			printf("\t%f", inverse[i][j]);
+		}
+		printf("\n");
+	}
 }
