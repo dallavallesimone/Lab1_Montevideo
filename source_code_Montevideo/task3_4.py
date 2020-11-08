@@ -36,8 +36,8 @@ def binary_matrices():
         eigenvalue = eigenvalue >> 1
 
     #Saves the matrices
-    np.savetxt("A_mat.txt", np.asmatrix(A_matrix), fmt="%d")
-    np.savetxt("B_mat.txt", np.asmatrix(B_matrix), fmt="%d")
+    np.savetxt("A_matrix.txt", np.asmatrix(A_matrix), fmt="%d")
+    np.savetxt("B_matrix.txt", np.asmatrix(B_matrix), fmt="%d")
 
     return [A_matrix, B_matrix]
 
